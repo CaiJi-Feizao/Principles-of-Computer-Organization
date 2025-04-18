@@ -12,21 +12,23 @@ module fpu(
     );
 
     // TODO: 定义状态
-    localparam IDLE    = 3'b000;
-    localparam STORAGE = 3'b001;
-    localparam EXPALIGN = 3'b010;
-    localparam MANTSWAP = 3'b011;
-    localparam MANTCALC = 3'b100;
-    localparam MANTALIGN = 3'b101;
-    localparam OUTPUT = 3'b110;
-    localparam STOP = 3'b111;
+    localparam IDLE    = 4'b0000;
+    localparam STORAGE = 4'b0001;
+    localparam EXPALIGN = 4'b0010;
+    localparam MANTSWAP = 4'b0011;
+    localparam MANTCALC = 4'b0100;
+    localparam MANTALIGN = 4'b0101;
+    localparam OUTPUT = 4'b0110;
+    localparam STOP = 4'b0111;
+    localparam NOTNORMAL = 4'b1010;
+    localparam NOTNORMAL_OUTPUT = 4'b1110;
 
     // 状态变量
-    reg [2:0] next_state, cur_state;
+    reg [3:0] next_state, cur_state;
 
     // TODO: 定义其他中间变量
 
-    reg signA, signB, calmode, swapsign;
+    reg signA, signB, calmode, swapsign, normalsign;
     reg [7:0] expA, expB, expC;
     reg [24:0] mantA, mantB, mantC;
 
@@ -52,22 +54,37 @@ module fpu(
                 else
                     next_state = IDLE;
             STORAGE:
-                next_state = EXPALIGN;
+                if (A[30:23] == 8'h00)
+                    next_state = NOTNORMAL;
+                else
+                    next_state = EXPALIGN;
             EXPALIGN:
                 next_state = MANTSWAP;
             MANTSWAP:
                 next_state = MANTCALC;
             MANTCALC:
+                if (A[30:23] == 8'h00)
+                begin
+                    if ()
+                    end
+            next_state = NOTNORMAL_OUTPUT;
+            else
                 next_state = MANTALIGN;
             MANTALIGN:
                 if (mantC[24] == 1)
                     next_state = OUTPUT;
+                else if (expC == 0)
+                    next_state = NTNN;
                 else
                     next_state = MANTALIGN;
             OUTPUT:
                 next_state = STOP;
             STOP:
                 next_state = IDLE;
+            NOTNORMAL:
+                next_state = MANTSWAP;
+            NOTNORMAL_OUTPUT:
+                next_state = STOP;
             default:
                 next_state = IDLE;
         endcase
@@ -101,6 +118,11 @@ module fpu(
                     mantB <= {2'b01, B[22:0]};
                     calmode <= op;
                     swapsign <= 0;
+                end
+                NOTNORMAL:
+                begin
+                    mantA <= {2'b00, mantA[22:0]};
+                    mantB <= {2'b00, mantB[22:0]};
                 end
                 EXPALIGN:
                 begin
@@ -163,8 +185,14 @@ module fpu(
                 begin
                     ready <= 1;
                 end
+                NOTNORMAL_OUTPUT:
+                begin
+                    S_C[22:0] <= mantC[22:0];
+                    S_C[30:23] <= 8'h0;
+                end
                 default:
                 begin
+                    normalsign <= 1;
                     ready <= 1;
                 end
             endcase
@@ -172,3 +200,4 @@ module fpu(
     end
 
 endmodule
+
