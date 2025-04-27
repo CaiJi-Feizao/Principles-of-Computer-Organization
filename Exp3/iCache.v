@@ -5,7 +5,7 @@
 // 主存地址有效位宽：15bit
 // Cache容量：127B
 // Cache块大小：256bit (8*32bit)
-// Cache块个数：?
+// Cache块个数：4
 
 module ICache(
         input  wire         cpu_clk,
@@ -70,7 +70,7 @@ module ICache(
             cnt <= cnt - 1;
     end
 
-    wire hit = |hit_arr;
+    wire hit = cur_state == TAG_CHK ? |hit_arr : 0;
 
     always @(*)
     begin
@@ -101,7 +101,7 @@ module ICache(
 
     always @(*)
     begin
-        cpu_raddr = inst_addr;
+        cpu_raddr = {inst_addr[31:5], 5'b00000 };
     end
 
     // TODO: 生成状态机的输出信号
@@ -138,11 +138,8 @@ module ICache(
     begin
         if (cpu_rst)
             free_index <= 0;
-        else
-        begin
-            if (dev_rvalid && ~(&valid))
-                free_index <= free_index + 1;
-        end
+        else if (dev_rvalid && ~(&valid))
+            free_index <= free_index + 1;
     end
 
     always @(posedge cpu_clk or posedge cpu_rst)
